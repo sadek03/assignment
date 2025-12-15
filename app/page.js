@@ -1,8 +1,8 @@
 "use client";
 
-import SignaturePad from "@/components/SignaturePad";
 import { useState, useRef, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import SignaturePad from "@/components/SignaturePad";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 
@@ -34,9 +34,12 @@ export default function PDFEditor() {
   const [draggedFieldType, setDraggedFieldType] = useState(null);
   const [isDraggingField, setIsDraggingField] = useState(null);
 
+  // NEW: Sidebar responsiveness state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const containerRef = useRef(null);
 
-  // --- HANDLERS: PDF ---
+  // --- HANDLERS ---
   const handlePdfUpload = (e) => {
     const file = e.target.files[0];
     if (file && file.type === "application/pdf") {
@@ -54,10 +57,11 @@ export default function PDFEditor() {
     });
   };
 
-  // --- HANDLERS: DRAG NEW FIELD ---
   const handleDragStart = (e, type) => {
     e.dataTransfer.setData("fieldType", type);
     setDraggedFieldType(type);
+    // Optional: Close sidebar on mobile when dragging starts
+    if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
   const handleDrop = (e) => {
@@ -74,7 +78,7 @@ export default function PDFEditor() {
       const newField = {
         id: Date.now(),
         type: typeId,
-        page: pageNumber, // Assign to current page
+        page: pageNumber,
         xPercent,
         yPercent,
         width: 150,
@@ -106,7 +110,6 @@ export default function PDFEditor() {
 
   const handleDragOver = (e) => e.preventDefault();
 
-  // --- HANDLERS: MOVE FIELD ---
   const handleCanvasMouseDown = (e, fieldId) => {
     e.stopPropagation();
     setIsDraggingField(fieldId);
@@ -190,56 +193,101 @@ export default function PDFEditor() {
       onMouseUp={handleCanvasMouseUp}
       onMouseMove={handleCanvasMouseMove}
     >
-      <header className="bg-white shadow-sm z-20 px-6 py-3 flex justify-between items-center border-b border-gray-200 flex-none h-16">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <span className="text-2xl">📝</span> PDF Form Builder
-        </h1>
+      {/* HEADER */}
+      <header className="bg-white shadow-sm z-30 px-4 md:px-6 py-3 flex justify-between items-center border-b border-gray-200 flex-none h-16">
+        <div className="flex items-center gap-3">
+          {/* MOBILE MENU BUTTON */}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            <span className="text-xl">☰</span>
+          </button>
 
+          <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
+            <span className="text-xl md:text-2xl">📝</span>
+            <span className="hidden sm:inline">PDF Form Builder</span>
+            <span className="sm:hidden">Builder</span>
+          </h1>
+        </div>
+
+        {/* Page Controls (Hidden on very small screens if needed, or scaled down) */}
         {pdfUrl && numPages && (
-          <div className="flex items-center gap-3 bg-gray-100 rounded-lg p-1">
+          <div className="hidden sm:flex items-center gap-2 md:gap-3 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => changePage(-1)}
               disabled={pageNumber <= 1}
-              className="px-3 py-1 bg-white hover:bg-gray-50 rounded shadow-sm text-sm font-medium disabled:opacity-50"
+              className="px-2 md:px-3 py-1 bg-white hover:bg-gray-50 rounded shadow-sm text-xs md:text-sm font-medium disabled:opacity-50"
             >
               Prev
             </button>
-            <span className="text-sm font-medium w-24 text-center">
-              Page {pageNumber} of {numPages}
+            <span className="text-xs md:text-sm font-medium w-16 md:w-24 text-center">
+              {pageNumber} / {numPages}
             </span>
             <button
               onClick={() => changePage(1)}
               disabled={pageNumber >= numPages}
-              className="px-3 py-1 bg-white hover:bg-gray-50 rounded shadow-sm text-sm font-medium disabled:opacity-50"
+              className="px-2 md:px-3 py-1 bg-white hover:bg-gray-50 rounded shadow-sm text-xs md:text-sm font-medium disabled:opacity-50"
             >
               Next
             </button>
           </div>
         )}
 
-        <div className="flex items-center gap-4">
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={handlePdfUpload}
-            className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-          />
+        <div className="flex items-center gap-2 md:gap-4">
+          <label className="text-sm text-blue-600 font-semibold cursor-pointer hover:bg-blue-50 px-3 py-2 rounded-lg transition-colors">
+            {pdfFile ? "Change PDF" : "Upload PDF"}
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={handlePdfUpload}
+              className="hidden"
+            />
+          </label>
+
           {fields.length > 0 && (
             <button
               onClick={handleFinish}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium shadow transition-colors"
+              className="bg-green-600 hover:bg-green-700 text-white px-4 md:px-6 py-2 rounded-lg font-medium shadow transition-colors text-sm"
             >
-              Finish & Save
+              Save
             </button>
           )}
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden relative">
-        <aside className="w-64 bg-white border-r border-gray-200 p-6 flex-none overflow-y-auto z-10">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-            Toolkit
-          </h3>
+        {/* MOBILE OVERLAY (Closes sidebar when clicked) */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 md:hidden glass"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+
+        {/* RESPONSIVE SIDEBAR */}
+        <aside
+          className={`
+            fixed md:relative inset-y-0 left-0 z-50 md:z-auto
+            w-64 bg-white border-r border-gray-200 p-6 flex-none 
+            transform transition-transform duration-300 ease-in-out
+            ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+            md:translate-x-0 md:block overflow-y-auto
+          `}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+              Toolkit
+            </h3>
+            {/* Mobile Close Button */}
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="md:hidden text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+
           <div className="space-y-3">
             {FIELD_TYPES.map((type) => (
               <div
@@ -255,10 +303,14 @@ export default function PDFEditor() {
           </div>
           <div className="mt-8 text-xs text-gray-400">
             <p>Drag items onto the PDF page.</p>
+            <p className="md:hidden mt-2 text-orange-500">
+              * Drag & Drop works best on Desktop/Laptop.
+            </p>
           </div>
         </aside>
 
-        <main className="flex-1 bg-gray-200 overflow-auto relative flex justify-center p-8">
+        {/* WORKSPACE */}
+        <main className="flex-1 bg-gray-200 overflow-auto relative flex justify-center p-4 md:p-8">
           {pdfUrl ? (
             <div
               ref={containerRef}
@@ -300,11 +352,11 @@ export default function PDFEditor() {
                 ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center text-gray-400 h-full">
-              <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center mb-4">
-                <span className="text-4xl">📄</span>
+            <div className="flex flex-col items-center justify-center text-gray-400 h-full text-center px-4">
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-300 rounded-full flex items-center justify-center mb-4">
+                <span className="text-3xl md:text-4xl">📄</span>
               </div>
-              <p className="text-lg font-medium">
+              <p className="text-base md:text-lg font-medium">
                 Upload a PDF to start editing
               </p>
             </div>
@@ -322,6 +374,7 @@ export default function PDFEditor() {
   );
 }
 
+// --- SUB-COMPONENT: Individual Field Renderer ---
 const RenderField = ({
   field,
   isSelected,
